@@ -22,8 +22,7 @@ class Conv(nn.Module):
             padding: Optional[int] = 1,
             groups: int = 1,
             dilation: int = 1,
-            bias: bool = False,
-            act: bool = True,
+            act: bool = True
     ) -> None:
         super().__init__()
         self.conv = nn.Conv2d(
@@ -33,8 +32,7 @@ class Conv(nn.Module):
             stride=stride,
             padding=auto_pad(kernel_size, dilation),
             dilation=dilation,
-            groups=groups,
-            bias=bias,
+            groups=groups
         )
         self.bn = nn.BatchNorm2d(num_features=out_channels)
         self.act = nn.ReLU(inplace=True) if act else nn.Identity()
@@ -59,7 +57,6 @@ class DoubleConv(nn.Module):
             padding: int = 1,
             dilation: int = 1,
             groups: int = 1,
-            bias: bool = False,
             act: bool = True,
     ) -> None:
         super().__init__()
@@ -73,7 +70,6 @@ class DoubleConv(nn.Module):
             padding=padding,
             dilation=dilation,
             groups=groups,
-            bias=bias,
             act=act,
         )
         self.conv2 = Conv(
@@ -84,7 +80,6 @@ class DoubleConv(nn.Module):
             padding=padding,
             dilation=dilation,
             groups=groups,
-            bias=bias,
             act=act,
         )
 
@@ -103,21 +98,23 @@ class Bottleneck(nn.Module):
             in_channels: int,
             out_channels: int,
             shortcut: bool = True,
-            eps: float = 0.5
+            groups: int = 1,
+            expansion: float = 0.5
     ) -> None:
         super().__init__()
-        mid_channels = int(out_channels * eps)
+        mid_channels = int(out_channels * expansion)
         self.conv1 = Conv(
             in_channels=in_channels,
             out_channels=mid_channels,
             kernel_size=1,
-            bias=True
+            stride=1,
         )
         self.conv2 = Conv(
             in_channels=mid_channels,
             out_channels=out_channels,
             kernel_size=3,
-            bias=True
+            stride=1,
+            groups=groups
         )
         self.add = shortcut and in_channels == out_channels
 
@@ -152,8 +149,7 @@ class BottleneckCSP(nn.Module):
             padding=padding,
             dilation=dilation,
             groups=groups,
-            bias=bias,
-            act=act,
+            act=act
         )
         self.conv2 = Conv(
             in_channels=mid_channels,
@@ -163,8 +159,7 @@ class BottleneckCSP(nn.Module):
             padding=padding,
             dilation=dilation,
             groups=groups,
-            bias=bias,
-            act=act,
+            act=act
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -174,13 +169,43 @@ class BottleneckCSP(nn.Module):
         return x
 
 
+class C3(nn.Module):
+    def __init__(
+            self,
+            in_channels: int,
+            out_channels: int,
+            repeats: int = 1,
+            shortcut: bool = True,
+            groups: int = 1,
+            expansion: float = 0.5
+    ):
+        super().__init__()
+        mid_channels = int(out_channels * expansion)
+        self.conv1 = Conv(in_channels=in_channels, out_channels=mid_channels, kernel_size=1, stride=1)
+        self.conv2 = Conv(in_channels=in_channels, out_channels=mid_channels, kernel_size=1, stride=1)
+        self.conv3 = Conv(in_channels=2 * mid_channels, out_channels=out_channels, kernel_size=1, stride=1)
+
+        self.m = nn.Sequential(*[
+            Bottleneck(
+                in_channels=mid_channels,
+                out_channels=mid_channels,
+                shortcut=shortcut,
+                groups=groups,
+                expansion=1.0
+            ) for _ in range(repeats)
+        ])
+
+    def forward(self, x):
+        return self.conv3(torch.cat([self.m(self.conv1(x)), self.conv2(x)], dim=1))
+
+
 class Down(nn.Module):
     """Feature Downscale"""
 
     def __init__(self, in_channels: int, out_channels: int, scale_factor=2) -> None:
         super().__init__()
         self.pool = nn.MaxPool2d(kernel_size=scale_factor)
-        self.conv = Bottleneck(in_channels=in_channels, out_channels=out_channels)
+        self.conv = C3(in_channels=in_channels, out_channels=out_channels)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.pool(x)
@@ -197,7 +222,7 @@ class Up(nn.Module):
         self.up = nn.ConvTranspose2d(
             in_channels=in_channels, out_channels=in_channels // 2, kernel_size=2, stride=scale_factor
         )
-        self.conv = Bottleneck(in_channels=in_channels, out_channels=out_channels)
+        self.conv = C3(in_channels=in_channels, out_channels=out_channels)
 
     def forward(self, x1: torch.Tensor, x2: torch.Tensor) -> torch.Tensor:
         x1 = self.up(x1)
@@ -249,6 +274,8 @@ class UNet(nn.Module):
 
 if __name__ == '__main__':
     model = UNet(3, 2)
+    a = torch.randn(1, 3, 512, 512)
+    print(model(a).shape)
     print(sum(p.numel() for p in model.parameters() if p.requires_grad))
     # 16938658
     # 31037698
