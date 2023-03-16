@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader, random_split
 from tqdm import tqdm
 
 from polypseg.models import UNet
-from polypseg.utils.dataset import Carvana
+from polypseg.utils.dataset import PolypDataset
 from polypseg.utils.losses import DiceCELoss, DiceLoss, CrossEntropyLoss, FocalLoss
 
 
@@ -40,10 +40,10 @@ def train(opt, model, device):
     model.to(device)
 
     # Optimizers & LR Scheduler & Mixed Precision & Loss
-    optimizer = torch.optim.RMSprop(model.parameters(), lr=opt.lr, weight_decay=1e-8, momentum=0.9, foreach=True)
+    optimizer = torch.optim.Adam(model.parameters(), lr=opt.lr, weight_decay=1e-8, foreach=True)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="max", patience=5)
     grad_scaler = torch.cuda.amp.GradScaler(enabled=opt.amp)
-    criterion = DiceCELoss()
+    criterion = DiceLoss()
 
     # Resume
     if pretrained:
@@ -59,7 +59,7 @@ def train(opt, model, device):
         del ckpt
 
     # Dataset
-    dataset = Carvana(root="./data", image_size=opt.image_size, mask_suffix="")
+    dataset = PolypDataset(root="./data", image_size=opt.image_size, mask_suffix="")
 
     # Split
     n_val = int(len(dataset) * 0.1)
@@ -74,14 +74,14 @@ def train(opt, model, device):
     for epoch in range(start_epoch, opt.epochs):
         model.train()
         epoch_loss = 0
-        logging.info(("\n" + "%12s" * 5) % ("Epoch", "GPU Mem", "CE Loss", "Dice Loss", "Total Loss"))
+        logging.info(("\n" + "%12s" * 3) % ("Epoch", "GPU Mem", "Loss"))
         progress_bar = tqdm(train_loader, total=len(train_loader))
         for image, target in progress_bar:
             image, target = image.to(device), target.to(device)
 
             with torch.cuda.amp.autocast(enabled=opt.amp):
                 output = model(image)
-                loss, losses = criterion(output, target)
+                loss = criterion(output, target)
 
             optimizer.zero_grad(set_to_none=True)
             grad_scaler.scale(loss).backward()
@@ -91,7 +91,7 @@ def train(opt, model, device):
             epoch_loss += loss.item()
             mem = f"{torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0:.3g}G"  # (GB)
             progress_bar.set_description(
-                ("%12s" * 2 + "%12.4g" * 3) % (f"{epoch + 1}/{opt.epochs}", mem, losses["ce"], losses["dice"], loss)
+                ("%12s" * 2 + "%12.4g") % (f"{epoch + 1}/{opt.epochs}", mem, loss)
             )
 
         dice_score, dice_loss = validate(model, test_loader, device)

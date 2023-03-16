@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Union
 
 import torch
 import torch.nn as nn
@@ -19,7 +19,7 @@ class Conv(nn.Module):
             out_channels: int,
             kernel_size: int = 1,
             stride: int = 1,
-            padding: Optional[int] = None,
+            padding: Optional[int] = 1,
             groups: int = 1,
             dilation: int = 1,
             bias: bool = False,
@@ -31,7 +31,7 @@ class Conv(nn.Module):
             out_channels=out_channels,
             kernel_size=kernel_size,
             stride=stride,
-            padding=auto_pad(kernel_size, dilation) if padding is None else padding,
+            padding=auto_pad(kernel_size, dilation),
             dilation=dilation,
             groups=groups,
             bias=bias,
@@ -95,13 +95,92 @@ class DoubleConv(nn.Module):
         return x
 
 
+class Bottleneck(nn.Module):
+    """Double Convolutional Block"""
+
+    def __init__(
+            self,
+            in_channels: int,
+            out_channels: int,
+            shortcut: bool = True,
+            eps: float = 0.5
+    ) -> None:
+        super().__init__()
+        mid_channels = int(out_channels * eps)
+        self.conv1 = Conv(
+            in_channels=in_channels,
+            out_channels=mid_channels,
+            kernel_size=1,
+            bias=True
+        )
+        self.conv2 = Conv(
+            in_channels=mid_channels,
+            out_channels=out_channels,
+            kernel_size=3,
+            bias=True
+        )
+        self.add = shortcut and in_channels == out_channels
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return x + self.conv2(self.conv1(x)) if self.add else self.conv2(self.conv1(x))
+
+
+class BottleneckCSP(nn.Module):
+    """Double Convolutional Block"""
+
+    def __init__(
+            self,
+            in_channels: int,
+            out_channels: int,
+            mid_channels: Optional[int] = None,
+            kernel_size: int = 3,
+            stride: int = 1,
+            padding: int = 1,
+            dilation: int = 1,
+            groups: int = 1,
+            bias: bool = False,
+            act: bool = True,
+    ) -> None:
+        super().__init__()
+        if not mid_channels:
+            mid_channels = out_channels
+        self.conv1 = Conv(
+            in_channels=in_channels,
+            out_channels=mid_channels,
+            kernel_size=kernel_size,
+            stride=stride,
+            padding=padding,
+            dilation=dilation,
+            groups=groups,
+            bias=bias,
+            act=act,
+        )
+        self.conv2 = Conv(
+            in_channels=mid_channels,
+            out_channels=out_channels,
+            kernel_size=kernel_size,
+            stride=stride,
+            padding=padding,
+            dilation=dilation,
+            groups=groups,
+            bias=bias,
+            act=act,
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.conv1(x)
+        x = self.conv2(x)
+
+        return x
+
+
 class Down(nn.Module):
     """Feature Downscale"""
 
     def __init__(self, in_channels: int, out_channels: int, scale_factor=2) -> None:
         super().__init__()
         self.pool = nn.MaxPool2d(kernel_size=scale_factor)
-        self.conv = DoubleConv(in_channels=in_channels, out_channels=out_channels)
+        self.conv = Bottleneck(in_channels=in_channels, out_channels=out_channels)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.pool(x)
@@ -118,7 +197,7 @@ class Up(nn.Module):
         self.up = nn.ConvTranspose2d(
             in_channels=in_channels, out_channels=in_channels // 2, kernel_size=2, stride=scale_factor
         )
-        self.conv = DoubleConv(in_channels=in_channels, out_channels=out_channels)
+        self.conv = Bottleneck(in_channels=in_channels, out_channels=out_channels)
 
     def forward(self, x1: torch.Tensor, x2: torch.Tensor) -> torch.Tensor:
         x1 = self.up(x1)
@@ -166,3 +245,10 @@ class UNet(nn.Module):
         x_ = self.output_conv(x_)
 
         return x_
+
+
+if __name__ == '__main__':
+    model = UNet(3, 2)
+    print(sum(p.numel() for p in model.parameters() if p.requires_grad))
+    # 16938658
+    # 31037698
