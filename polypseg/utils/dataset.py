@@ -7,7 +7,7 @@ from torch.utils import data
 from polypseg.utils.transforms import Augmentation
 
 
-class Carvana(data.Dataset):
+class PolypDataset(data.Dataset):
     def __init__(
             self,
             root: str,
@@ -34,18 +34,17 @@ class Carvana(data.Dataset):
         mask_path = os.path.join(self.root, f"masks{os.sep}{filename + self.mask_suffix}.jpg")
 
         # image load
-        image = Image.open(image_path)
-        mask = Image.open(mask_path)
-        _, mask = cv2.threshold(np.array(mask), 127, 155, cv2.THRESH_BINARY)
-        mask = mask / 255.0
-        # TODO: FIXME
-        # if (np.asarray(mask) > 1).any():
-        #     mask = np.asarray(np.asarray(mask) / 255.0, dtype=np.byte)
-        #     mask = Image.fromarray(mask)
-        assert image.size == mask.size, f"`image`: {image.size} and `mask`: {mask.size} are not the same"
+        image = Image.open(image_path).convert("RGB")
+        mask = Image.open(mask_path).convert("L")
 
         # resize
         image, mask = self.resize_pil(image, mask, image_size=self.image_size)
+
+        _, mask = cv2.threshold(np.array(mask), 127, 255, cv2.THRESH_BINARY)
+        mask = Image.fromarray(np.asarray(mask / 255.0, dtype=float))
+
+        assert image.size == mask.size, f"`image`: {image.size} and `mask`: {mask.size} are not the same"
+
         if self.transforms is not None:
             image, mask = self.transforms(image, mask)
 
