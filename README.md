@@ -16,7 +16,8 @@ In this section, provide a brief description of your project, including its purp
 
 ## Installation
 
-Provide step-by-step instructions for how to install your project. If there are any dependencies, make sure to list them and explain how to install them.
+Provide step-by-step instructions for how to install your project. If there are any dependencies, make sure to list them
+and explain how to install them.
 
 ## Usage
 
@@ -24,7 +25,14 @@ Provide examples of how to use your project. Include any relevant code snippets 
 
 ## Contributing
 
-If you welcome contributions from other developers, explain how they can get started. Include information on how to report bugs, request features, or submit code changes.
+If you welcome contributions from other developers, explain how they can get started. Include information on how to
+report bugs, request features, or submit code changes.
+
+## Reference
+
+1. [2020 MediaEval Medico - polyp segmentation](https://github.com/DebeshJha/2020-MediaEval-Medico-polyp-segmentation)
+   competition.
+2. [Kvasir SEG](https://datasets.simula.no/kvasir-seg/) dataset
 
 ## License
 
