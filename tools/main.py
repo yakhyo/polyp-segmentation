@@ -11,7 +11,7 @@ from tqdm import tqdm
 from polypseg.models import UNet
 from polypseg.utils.dataset import PolypDataset
 from polypseg.utils.losses import DiceCELoss, DiceLoss, CrossEntropyLoss, FocalLoss
-from polypseg.utils.general import EarlyStopping, strip_optimizers
+from polypseg.utils.general import EarlyStopping, strip_optimizers, random_seed
 
 
 def train(opt, model, device):
@@ -132,7 +132,7 @@ def parse_opt():
     parser.add_argument("--image_size", type=int, default=512, help="Input image size, default: 512")
     parser.add_argument("--save-dir", type=str, default="weights", help="Directory to save weights")
     parser.add_argument("--epochs", type=int, default=20, help="Number of epochs, default: 5")
-    parser.add_argument("--batch-size", type=int, default=8, help="Batch size, default: 12")
+    parser.add_argument("--batch-size", type=int, default=12, help="Batch size, default: 12")
     parser.add_argument("--lr", type=float, default=1e-5, help="Learning rate, default: 1e-5")
     parser.add_argument("--weights", type=str, default="", help="Pretrained model, default: None")
     parser.add_argument("--amp", action="store_true", help="Use mixed precision")
@@ -152,7 +152,7 @@ def main(opt):
         f"\t{model.in_channels} input channels\n"
         f"\t{model.out_channels} output channels (number of classes)"
     )
-
+    random_seed()
     # Create folder to save weights
     os.makedirs(opt.save_dir, exist_ok=True)
 
