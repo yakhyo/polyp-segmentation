@@ -5,26 +5,13 @@ from copy import deepcopy
 
 import torch
 import torch.nn.functional as F
-from torch.utils.data import DataLoader, random_split
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from polypseg.models import UNet
 from polypseg.utils.dataset import PolypDataset
 from polypseg.utils.losses import DiceCELoss, DiceLoss, CrossEntropyLoss, FocalLoss
-
-
-def strip_optimizers(f: str):
-    """Strip optimizer from 'f' to finalize training"""
-    x = torch.load(f, map_location="cpu")
-    for k in "optimizer", "best_score":
-        x[k] = None
-    x["epoch"] = -1
-    x["model"].half()  # to FP16
-    for p in x["model"].parameters():
-        p.requires_grad = False
-    torch.save(x, f)
-    mb = os.path.getsize(f) / 1e6  # get file size
-    logging.info(f"Optimizer stripped from {f}, saved as {f} {mb:.1f}MB")
+from polypseg.utils.general import EarlyStopping, strip_optimizers
 
 
 def train(opt, model, device):
@@ -40,7 +27,7 @@ def train(opt, model, device):
     model.to(device)
 
     # Optimizers & LR Scheduler & Mixed Precision & Loss
-    optimizer = torch.optim.Adam(model.parameters(), lr=opt.lr, weight_decay=1e-8, foreach=True)
+    optimizer = torch.optim.RMSprop(model.parameters(), lr=opt.lr, weight_decay=1e-8, momentum=0.9, foreach=True)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="max", patience=5)
     grad_scaler = torch.cuda.amp.GradScaler(enabled=opt.amp)
     criterion = DiceLoss()
@@ -59,16 +46,20 @@ def train(opt, model, device):
         del ckpt
 
     # Dataset
-    dataset = PolypDataset(root="./data", image_size=opt.image_size, mask_suffix="")
+    with open("./data/train.txt", "r") as f:
+        train_files = f.readlines()
+    train_data = PolypDataset(root="./data", filenames=train_files, image_size=opt.image_size, mask_suffix="")
 
-    # Split
-    n_val = int(len(dataset) * 0.1)
-    n_train = len(dataset) - n_val
-    train_data, test_data = random_split(dataset, [n_train, n_val], generator=torch.Generator().manual_seed(0))
+    with open("./data/val.txt", "r") as f:
+        val_files = f.readlines()
+    test_data = PolypDataset(root="./data", filenames=val_files, image_size=opt.image_size, mask_suffix="")
 
     # DataLoader
     train_loader = DataLoader(train_data, batch_size=opt.batch_size, num_workers=8, shuffle=True, pin_memory=True)
     test_loader = DataLoader(test_data, batch_size=opt.batch_size, num_workers=8, drop_last=True, pin_memory=True)
+
+    # Initialize Early Stopping
+    stopper, stop = EarlyStopping(patience=10), False
 
     # Training
     for epoch in range(start_epoch, opt.epochs):
@@ -108,6 +99,11 @@ def train(opt, model, device):
             best_score = max(best_score, dice_score)
             torch.save(ckpt, best)
 
+        # Early Stopping
+        stop = stopper(epoch, dice_loss)
+        if stop:
+            break
+
     # Strip optimizers & save weights
     for f in best, last:
         strip_optimizers(f)
@@ -135,8 +131,8 @@ def parse_opt():
     parser = argparse.ArgumentParser(description="UNet training arguments")
     parser.add_argument("--image_size", type=int, default=512, help="Input image size, default: 512")
     parser.add_argument("--save-dir", type=str, default="weights", help="Directory to save weights")
-    parser.add_argument("--epochs", type=int, default=10, help="Number of epochs, default: 5")
-    parser.add_argument("--batch-size", type=int, default=12, help="Batch size, default: 12")
+    parser.add_argument("--epochs", type=int, default=20, help="Number of epochs, default: 5")
+    parser.add_argument("--batch-size", type=int, default=8, help="Batch size, default: 12")
     parser.add_argument("--lr", type=float, default=1e-5, help="Learning rate, default: 1e-5")
     parser.add_argument("--weights", type=str, default="", help="Pretrained model, default: None")
     parser.add_argument("--amp", action="store_true", help="Use mixed precision")

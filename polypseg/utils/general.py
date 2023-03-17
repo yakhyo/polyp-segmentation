@@ -1,3 +1,4 @@
+import os
 import random
 
 import numpy as np
@@ -9,6 +10,20 @@ def random_seed(seed=42):
     torch.manual_seed(seed)
     np.random.seed(seed)
     random.seed(seed)
+
+
+def strip_optimizers(f: str):
+    """Strip optimizer from 'f' to finalize training"""
+    x = torch.load(f, map_location="cpu")
+    for k in "optimizer", "best_score":
+        x[k] = None
+    x["epoch"] = -1
+    x["model"].half()  # to FP16
+    for p in x["model"].parameters():
+        p.requires_grad = False
+    torch.save(x, f)
+    mb = os.path.getsize(f) / 1e6  # get file size
+    print(f"Optimizer stripped from {f}, saved as {f} {mb:.1f}MB")
 
 
 class Augmentation:
@@ -68,3 +83,24 @@ class RandomHorizontalFlip:
             image = F.hflip(image)
             target = F.hflip(target)
         return image, target
+
+
+class EarlyStopping:
+    """EarlyStopping"""
+
+    def __init__(self, patience=10):
+        self.best_fitness = 0.0  # i.e. mAP, Dice
+        self.best_epoch = 0
+        self.patience = patience or float('inf')
+        self.possible_stop = False
+
+    def __call__(self, epoch, fitness):
+        if fitness >= self.best_fitness:  # >= 0 to allow for early zero-fitness stage of training
+            self.best_epoch = epoch
+            self.best_fitness = fitness
+        delta = epoch - self.best_epoch  # epochs without improvement
+        self.possible_stop = delta >= (self.patience - 1)  # possible stop may occur next epoch
+        stop = delta >= self.patience  # stop training if patience exceeded
+        if stop:
+            print(f"Early stopping as no improvement observed in last {self.patience} epochs.")
+        return stop

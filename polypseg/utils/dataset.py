@@ -4,13 +4,14 @@ import numpy as np
 
 from PIL import Image, ImageOps
 from torch.utils import data
-from polypseg.utils.transforms import Augmentation
+from polypseg.utils.general import Augmentation
 
 
 class PolypDataset(data.Dataset):
     def __init__(
             self,
             root: str,
+            filenames: list[str],
             image_size: int = 512,
             transforms: Augmentation = Augmentation(),
             mask_suffix: str = "_mask"
@@ -18,7 +19,7 @@ class PolypDataset(data.Dataset):
         self.root = root
         self.image_size = image_size
         self.mask_suffix = mask_suffix
-        self.filenames = [os.path.splitext(filename)[0] for filename in os.listdir(os.path.join(self.root, "images"))]
+        self.filenames = filenames
         if not self.filenames:
             raise FileNotFoundError(f"Files not found in {root}")
         self.transforms = transforms
@@ -30,8 +31,8 @@ class PolypDataset(data.Dataset):
         filename = self.filenames[idx]
 
         # image path
-        image_path = os.path.join(self.root, f"images{os.sep}{filename}.jpg")
-        mask_path = os.path.join(self.root, f"masks{os.sep}{filename + self.mask_suffix}.jpg")
+        image_path = os.path.join(self.root, f"images{os.sep}{filename.strip()}.jpg")
+        mask_path = os.path.join(self.root, f"masks{os.sep}{filename.strip() + self.mask_suffix}.jpg")
 
         # image load
         image = Image.open(image_path).convert("RGB")
