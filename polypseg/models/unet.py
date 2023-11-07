@@ -1,7 +1,7 @@
 from typing import Optional
 
 import torch
-import torch.nn as nn
+from torch import nn
 
 
 def auto_pad(kernel_size: int, padding: int = None, dilation: int = 1) -> int:
@@ -15,15 +15,15 @@ class Conv(nn.Module):
     """Convolutional Block"""
 
     def __init__(
-            self,
-            in_channels: int,
-            out_channels: int,
-            kernel_size: int = 1,
-            stride: int = 1,
-            padding: Optional[int] = None,
-            groups: int = 1,
-            dilation: int = 1,
-            act: bool = True
+        self,
+        in_channels: int,
+        out_channels: int,
+        kernel_size: int = 1,
+        stride: int = 1,
+        padding: Optional[int] = None,
+        groups: int = 1,
+        dilation: int = 1,
+        act: bool = True,
     ) -> None:
         super().__init__()
         self.conv = nn.Conv2d(
@@ -33,7 +33,7 @@ class Conv(nn.Module):
             stride=stride,
             padding=auto_pad(kernel_size, padding, dilation),
             dilation=dilation,
-            groups=groups
+            groups=groups,
         )
         self.bn = nn.BatchNorm2d(num_features=out_channels)
         self.act = nn.ReLU(inplace=True) if act else nn.Identity()
@@ -49,16 +49,16 @@ class DoubleConv(nn.Module):
     """Double Convolutional Block"""
 
     def __init__(
-            self,
-            in_channels: int,
-            out_channels: int,
-            mid_channels: Optional[int] = None,
-            kernel_size: int = 3,
-            stride: int = 1,
-            padding: int = 1,
-            dilation: int = 1,
-            groups: int = 1,
-            act: bool = True,
+        self,
+        in_channels: int,
+        out_channels: int,
+        mid_channels: Optional[int] = None,
+        kernel_size: int = 3,
+        stride: int = 1,
+        padding: int = 1,
+        dilation: int = 1,
+        groups: int = 1,
+        act: bool = True,
     ) -> None:
         super().__init__()
         if not mid_channels:
@@ -71,7 +71,7 @@ class DoubleConv(nn.Module):
             padding=padding,
             dilation=dilation,
             groups=groups,
-            act=act
+            act=act,
         )
         self.conv2 = Conv(
             in_channels=mid_channels,
@@ -81,7 +81,7 @@ class DoubleConv(nn.Module):
             padding=padding,
             dilation=dilation,
             groups=groups,
-            act=act
+            act=act,
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -112,7 +112,10 @@ class Up(nn.Module):
     def __init__(self, in_channels: int, out_channels: int, scale_factor: int) -> None:
         super().__init__()
         self.up = nn.ConvTranspose2d(
-            in_channels=in_channels, out_channels=in_channels // 2, kernel_size=2, stride=scale_factor
+            in_channels=in_channels,
+            out_channels=in_channels // 2,
+            kernel_size=2,
+            stride=scale_factor,
         )
         self.conv = DoubleConv(in_channels=in_channels, out_channels=out_channels)
 
@@ -126,7 +129,7 @@ class UNet(nn.Module):
     """UNet Segmentation Model"""
 
     def __init__(self, in_channels: int, out_channels: int) -> None:
-        super(UNet, self).__init__()
+        super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
 
@@ -162,12 +165,3 @@ class UNet(nn.Module):
         x_ = self.output_conv(x_)
 
         return x_
-
-
-if __name__ == '__main__':
-    model = UNet(3, 2)
-    a = torch.randn(1, 3, 512, 512)
-    print(model(a).shape)
-    print(sum(p.numel() for p in model.parameters() if p.requires_grad))
-    # 16938658
-    # 31037698

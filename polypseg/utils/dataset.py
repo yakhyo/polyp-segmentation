@@ -1,20 +1,30 @@
 import os
+
 import cv2
 import numpy as np
-
 from PIL import Image, ImageOps
 from torch.utils import data
+
 from polypseg.utils.general import Augmentation
 
 
 class PolypDataset(data.Dataset):
+    """Polyp Dataset
+    Args:
+        root (str): root path for a dataset
+        filenames (list): list of filenames
+        image_size (int): input image size
+        transforms: transforms for data prep
+        mask_suffix (str): suffix for masks
+    """
+
     def __init__(
-            self,
-            root: str,
-            filenames: list[str],
-            image_size: int = 512,
-            transforms: Augmentation = Augmentation(),
-            mask_suffix: str = "_mask"
+        self,
+        root: str,
+        filenames: list[str],
+        image_size: int = 512,
+        transforms: Augmentation = Augmentation(),
+        mask_suffix: str = "_mask",
     ) -> None:
         self.root = root
         self.image_size = image_size

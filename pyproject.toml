@@ -1,27 +1,17 @@
 [project]
-name = "Polyp Segmentation"
-version = "0.0.1"
+name = "project-template"
+version = "0.0.0"
 authors = [
-    { name = "Yakhyokhuja Valikhujaev", email = "yakhyo9696@gmail.com" }
+    {name = "Yakhyokhuja Valikhujaev", email = "yakhyo9696@gmail.com"}
 ]
-description = "Polyp segmentation using UNet"
+description = "Template for ML/DL projects"
 readme = "README.md"
 requires-python = ">=3.10"
-license = { file = "LICENSE" }
+license = {file = "LICENSE"}
 
-
-[tool.usort]
-first_party_detection = false
+[tool.isort]
+line_length = 120
+profile = "black"
 
 [tool.black]
-line-length = 120
-target-version = ["py310", "py311"]
-
-[tool.ufmt]
-excludes = [
-    "docs/",
-]
-
-[build-system]
-
-requires = ["setuptools", "wheel"]
+line_length = 120

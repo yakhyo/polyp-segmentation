@@ -1,33 +1,42 @@
-exclude: 'docs/'
-repos: 
+repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.0.1
+    rev: v4.4.0
     hooks:
-      - id: check-docstring-first
       - id: check-yaml
-      - id: check-toml
-      - id: mixed-line-ending
-        args: [--fix=lf]
       - id: end-of-file-fixer
+      - id: check-docstring-first
+      - id: check-json
+      - id: requirements-txt-fixer
       - id: no-commit-to-branch
-        args: ['--branch', 'main'] # by default master and main branch are protected if no branch argument set
+        args: [ '--branch', 'main' ]
 
-  - repo: https://github.com/omnilib/ufmt
-    rev: v1.3.2
+  - repo: https://github.com/pycqa/isort
+    rev: 5.12.0
     hooks:
-      - id: ufmt
-        additional_dependencies:
-          - black == 22.3.0
-          - usort == 1.0.2
+      - id: isort
+        name: isort (python)
+      - id: isort
+        name: isort (cython)
+        types: [ cython ]
+      - id: isort
+        name: isort (pyi)
+        types: [ pyi ]
+  - repo: https://github.com/psf/black
+    rev: 23.3.0
+    hooks:
+      - id: black
+        language_version: python3.10
 
-  - repo: https://github.com/PyCQA/flake8
-    rev: 6.0.0
+  - repo: local
     hooks:
-      - id: flake8
-        args: [--config=setup.cfg]
-        name: PEP8
-
-  - repo: https://github.com/PyCQA/pydocstyle
-    rev: 6.1.1
-    hooks:
-      - id: pydocstyle
+      - id: pylint
+        name: pylint
+        entry: pylint
+        language: system
+        types: [python]
+        args: [
+            "-rn", # Only display messages
+            "-sn", # Don't display the score
+            "--rcfile=.pylintrc", # Link to your config file
+            "--load-plugins=pylint.extensions.docparams", # Load an extension
+          ]

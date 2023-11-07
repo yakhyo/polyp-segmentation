@@ -10,8 +10,8 @@ from tqdm import tqdm
 
 from polypseg.models import UNet
 from polypseg.utils.dataset import PolypDataset
-from polypseg.utils.losses import DiceCELoss, DiceLoss, CrossEntropyLoss, FocalLoss
-from polypseg.utils.general import EarlyStopping, strip_optimizers, random_seed
+from polypseg.utils.general import EarlyStopping, random_seed, strip_optimizers
+from polypseg.utils.losses import DiceLoss
 
 
 def train(opt, model, device):
@@ -27,7 +27,13 @@ def train(opt, model, device):
     model.to(device)
 
     # Optimizers & LR Scheduler & Mixed Precision & Loss
-    optimizer = torch.optim.RMSprop(model.parameters(), lr=opt.lr, weight_decay=1e-8, momentum=0.9, foreach=True)
+    optimizer = torch.optim.RMSprop(
+        model.parameters(),
+        lr=opt.lr,
+        weight_decay=1e-8,
+        momentum=0.9,
+        foreach=True,
+    )
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="max", patience=5)
     grad_scaler = torch.cuda.amp.GradScaler(enabled=opt.amp)
     criterion = DiceLoss()
@@ -48,15 +54,37 @@ def train(opt, model, device):
     # Dataset
     with open("./data/train.txt", "r") as f:
         train_files = f.readlines()
-    train_data = PolypDataset(root="./data", filenames=train_files, image_size=opt.image_size, mask_suffix="")
+    train_data = PolypDataset(
+        root="./data",
+        filenames=train_files,
+        image_size=opt.image_size,
+        mask_suffix="",
+    )
 
     with open("./data/val.txt", "r") as f:
         val_files = f.readlines()
-    test_data = PolypDataset(root="./data", filenames=val_files, image_size=opt.image_size, mask_suffix="")
+    test_data = PolypDataset(
+        root="./data",
+        filenames=val_files,
+        image_size=opt.image_size,
+        mask_suffix="",
+    )
 
     # DataLoader
-    train_loader = DataLoader(train_data, batch_size=opt.batch_size, num_workers=8, shuffle=True, pin_memory=True)
-    test_loader = DataLoader(test_data, batch_size=opt.batch_size, num_workers=8, drop_last=True, pin_memory=True)
+    train_loader = DataLoader(
+        train_data,
+        batch_size=opt.batch_size,
+        num_workers=8,
+        shuffle=True,
+        pin_memory=True,
+    )
+    test_loader = DataLoader(
+        test_data,
+        batch_size=opt.batch_size,
+        num_workers=8,
+        drop_last=True,
+        pin_memory=True,
+    )
 
     # Initialize Early Stopping
     stopper, stop = EarlyStopping(patience=10), False
@@ -81,9 +109,7 @@ def train(opt, model, device):
 
             epoch_loss += loss.item()
             mem = f"{torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0:.3g}G"  # (GB)
-            progress_bar.set_description(
-                ("%12s" * 2 + "%12.4g") % (f"{epoch + 1}/{opt.epochs}", mem, loss)
-            )
+            progress_bar.set_description(("%12s" * 2 + "%12.4g") % (f"{epoch + 1}/{opt.epochs}", mem, loss))
 
         dice_score, dice_loss = validate(model, test_loader, device)
         logging.info(f"VALIDATION: Dice Score: {dice_score:.4f}, Dice Loss: {dice_loss:.4f}")
@@ -129,12 +155,27 @@ def validate(model, dataloader, device, conf_threshold=0.5):
 
 def parse_opt():
     parser = argparse.ArgumentParser(description="UNet training arguments")
-    parser.add_argument("--image_size", type=int, default=512, help="Input image size, default: 512")
-    parser.add_argument("--save-dir", type=str, default="weights", help="Directory to save weights")
+    parser.add_argument(
+        "--image_size",
+        type=int,
+        default=512,
+        help="Input image size, default: 512",
+    )
+    parser.add_argument(
+        "--save-dir",
+        type=str,
+        default="weights",
+        help="Directory to save weights",
+    )
     parser.add_argument("--epochs", type=int, default=20, help="Number of epochs, default: 5")
-    parser.add_argument("--batch-size", type=int, default=12, help="Batch size, default: 12")
+    parser.add_argument("--batch-size", type=int, default=4, help="Batch size, default: 12")
     parser.add_argument("--lr", type=float, default=1e-5, help="Learning rate, default: 1e-5")
-    parser.add_argument("--weights", type=str, default="", help="Pretrained model, default: None")
+    parser.add_argument(
+        "--weights",
+        type=str,
+        default="",
+        help="Pretrained model, default: None",
+    )
     parser.add_argument("--amp", action="store_true", help="Use mixed precision")
     parser.add_argument("--num-classes", type=int, default=2, help="Number of classes")
 

@@ -29,8 +29,21 @@ def weight_reduce_loss(loss, weight=None, reduction="mean"):
     return loss
 
 
-def cross_entropy(inputs, targets, weight=None, class_weight=None, reduction="mean", ignore_index=-100):
-    loss = F.cross_entropy(inputs, targets, weight=class_weight, reduction="none", ignore_index=ignore_index)
+def cross_entropy(
+    inputs,
+    targets,
+    weight=None,
+    class_weight=None,
+    reduction="mean",
+    ignore_index=-100,
+):
+    loss = F.cross_entropy(
+        inputs,
+        targets,
+        weight=class_weight,
+        reduction="none",
+        ignore_index=ignore_index,
+    )
 
     if weight is not None:
         weight = weight.float()
@@ -40,17 +53,20 @@ def cross_entropy(inputs, targets, weight=None, class_weight=None, reduction="me
 
 
 def dice_loss(
-        inputs: torch.Tensor,
-        targets: torch.Tensor,
-        weight: Optional[torch.Tensor] = None,
-        reduction: str = "none",
-        eps: float = 1e-5,
+    inputs: torch.Tensor,
+    targets: torch.Tensor,
+    weight: Optional[torch.Tensor] = None,
+    reduction: str = "none",
+    eps: float = 1e-5,
 ) -> torch.Tensor:
     inputs = F.softmax(inputs, dim=1)
     targets = F.one_hot(targets, inputs.shape[1]).permute(0, 3, 1, 2)
 
     if inputs.shape != targets.shape:
-        raise AssertionError(f"Ground truth has different shape ({targets.shape}) from input ({inputs.shape})")
+        raise AssertionError(
+            f"Ground truth has different shape ({targets.shape}) from input \
+            ({inputs.shape})"
+        )
 
     # flatten prediction and label tensors
     inputs = inputs.flatten()
@@ -72,12 +88,12 @@ def dice_loss(
 
 
 def sigmoid_focal_loss(
-        inputs: torch.Tensor,
-        targets: torch.Tensor,
-        weight: Optional[torch.Tensor] = None,
-        gamma: float = 2.0,
-        alpha: float = 0.25,
-        reduction: str = "mean",
+    inputs: torch.Tensor,
+    targets: torch.Tensor,
+    weight: Optional[torch.Tensor] = None,
+    gamma: float = 2.0,
+    alpha: float = 0.25,
+    reduction: str = "mean",
 ) -> torch.Tensor:
     probs = torch.sigmoid(inputs)
     targets = F.one_hot(targets, inputs.shape[1]).permute(0, 3, 1, 2)
@@ -86,7 +102,10 @@ def sigmoid_focal_loss(
     targets = targets.float()
 
     if inputs.shape != targets.shape:
-        raise AssertionError(f"Ground truth has different shape ({targets.shape}) from input ({inputs.shape})")
+        raise AssertionError(
+            f"Ground truth has different shape ({targets.shape}) from input \
+            ({inputs.shape})"
+        )
     pt = (1 - probs) * targets + probs * (1 - targets)
     focal_weight = (alpha * targets + (1 - alpha) * (1 - targets)) * pt.pow(gamma)
 

@@ -91,7 +91,7 @@ class EarlyStopping:
     def __init__(self, patience=10):
         self.best_fitness = 0.0  # i.e. mAP, Dice
         self.best_epoch = 0
-        self.patience = patience or float('inf')
+        self.patience = patience or float("inf")
         self.possible_stop = False
 
     def __call__(self, epoch, fitness):
@@ -102,5 +102,5 @@ class EarlyStopping:
         self.possible_stop = delta >= (self.patience - 1)  # possible stop may occur next epoch
         stop = delta >= self.patience  # stop training if patience exceeded
         if stop:
-            print(f"Early stopping as no improvement observed in last {self.patience} epochs.")
+            print(f"No improvement in last {self.patience} epochs.")
         return stop

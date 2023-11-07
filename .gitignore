@@ -5,7 +5,8 @@ log
 logs
 .idea
 .vscode
-data
+*.jpg
+*.pt
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

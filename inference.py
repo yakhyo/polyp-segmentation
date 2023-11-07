@@ -4,8 +4,8 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-
 from PIL import Image, ImageOps
+
 from polypseg.models import UNet
 
 
@@ -26,7 +26,7 @@ def preprocess(image, is_mask):
 def plot_img_and_mask(img, mask):
     """Display image and mask"""
     classes = mask.shape[0] if len(mask.shape) > 2 else 1
-    fig, ax = plt.subplots(1, classes + 1)
+    _, ax = plt.subplots(1, classes + 1)
     ax[0].set_title("Input image")
     ax[0].imshow(img)
     if classes > 1:
@@ -36,7 +36,8 @@ def plot_img_and_mask(img, mask):
     else:
         ax[1].set_title("Output mask")
         ax[1].imshow(mask)
-    plt.xticks([]), plt.yticks([])
+    plt.xticks([])
+    plt.yticks([])
     plt.show()
 
 
@@ -84,18 +85,34 @@ def mask_to_image(mask: np.ndarray):
     """Convert mask to image"""
     if mask.ndim == 2:
         return Image.fromarray((mask * 255).astype(np.uint8))
-    elif mask.ndim == 3:
+    if mask.ndim == 3:
         return Image.fromarray((np.argmax(mask, axis=0) * 255 / mask.shape[0]).astype(np.uint8))
+
+    raise ValueError("Mask image num channels cannot exceed from 3")
 
 
 def parse_opt():
     parser = argparse.ArgumentParser(description="UNet inference arguments")
-    parser.add_argument("--weights", default="./weights/last.pt", help="Path to weight file (default: last.pt)")
-    parser.add_argument("--input", type=str, default="./assets/image.jpg", help="Path to input image")
+    parser.add_argument(
+        "--weights",
+        default="./weights/last.pt",
+        help="Path to weight file (default: last.pt)",
+    )
+    parser.add_argument(
+        "--input",
+        type=str,
+        default="./assets/image.jpg",
+        help="Path to input image",
+    )
     parser.add_argument("--output", default="output.jpg", help="Path to save mask image")
     parser.add_argument("--view", action="store_true", help="Visualize image and mask")
     parser.add_argument("--no-save", action="store_true", help="Do not save the output masks")
-    parser.add_argument("--conf-thresh", type=float, default=0.5, help="Confidence threshold for mask")
+    parser.add_argument(
+        "--conf-thresh",
+        type=float,
+        default=0.5,
+        help="Confidence threshold for mask",
+    )
 
     return parser.parse_args()
 
